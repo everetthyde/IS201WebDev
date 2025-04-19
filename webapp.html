@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <a href="scratch.html">Home</a>
+  <meta charset="UTF-8">
+  <title>Snake Game with Random Birds</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-family: sans-serif;
+      background: #111;
+      color: #fff;
+      margin: 0;
+      padding: 20px;
+    }
+
+    a{
+    color: white;
+    text-decoration: none;
+    } 
+
+    a:hover{
+    text-decoration: underline;
+    }
+    
+    canvas {
+      background: #222;
+      border: 2px solid #fff;
+      margin-top: 10px;
+    }
+
+    .controls {
+      margin-top: 15px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 0 10px;
+      border: none;
+      border-radius: 5px;
+      background: #4caf50;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #45a049;
+    }
+
+    #scoreDisplay {
+      font-size: 18px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Snake Game with Birds of Prey</h1>
+<div id="scoreDisplay">Score: 0</div>
+<canvas id="gameCanvas" width="400" height="400"></canvas>
+
+<div class="controls">
+  <button onclick="startGame()">Start</button>
+  <button onclick="stopGame()">Stop</button>
+  <button onclick="restartGame()">Restart</button>
+</div>
+
+<!-- Sound Effects -->
+<audio id="eatSound" src="https://freesound.org/data/previews/571/571697_1648170-lq.mp3"></audio>
+<audio id="dieSound" src="https://freesound.org/data/previews/341/341695_3248244-lq.mp3"></audio>
+
+<script>
+  const canvas = document.getElementById("gameCanvas");
+  const ctx = canvas.getContext("2d");
+  const scoreDisplay = document.getElementById("scoreDisplay");
+  const eatSound = document.getElementById("eatSound");
+  const dieSound = document.getElementById("dieSound");
+
+  const gridSize = 20;
+  const tileCount = canvas.width / gridSize;
+
+  let snake = [];
+  let direction = { x: 0, y: 0 };
+  let fruit = {};
+  let birds = [];
+  let gameInterval;
+  let birdInterval;
+  let score = 0;
+
+  function resetGame() {
+    snake = [{ x: 10, y: 10 }];
+    direction = { x: 0, y: 0 };
+    score = 0;
+    birds = [];
+    placeFruit();
+    updateScore();
+  }
+
+  function startGame() {
+    if (!gameInterval) gameInterval = setInterval(update, 100);
+    if (!birdInterval) birdInterval = setInterval(spawnBird, 3000);
+  }
+
+  function stopGame() {
+    clearInterval(gameInterval);
+    clearInterval(birdInterval);
+    gameInterval = null;
+    birdInterval = null;
+  }
+
+  function restartGame() {
+    stopGame();
+    resetGame();
+    draw();
+  }
+
+  function updateScore() {
+    scoreDisplay.textContent = "Score: " + score;
+  }
+
+  function placeFruit() {
+    fruit = {
+      x: Math.floor(Math.random() * tileCount),
+      y: Math.floor(Math.random() * tileCount)
+    };
+  }
+
+  function spawnBird() {
+    const vertical = Math.random() < 0.5;
+    let bird;
+
+    if (vertical) {
+      // Vertical bird
+      const x = Math.floor(Math.random() * tileCount);
+      const topToBottom = Math.random() < 0.5;
+      bird = {
+        x: x,
+        y: topToBottom ? 0 : tileCount - 1,
+        dx: 0,
+        dy: topToBottom ? 1 : -1
+      };
+    } else {
+      // Horizontal bird
+      const y = Math.floor(Math.random() * tileCount);
+      const leftToRight = Math.random() < 0.5;
+      bird = {
+        x: leftToRight ? 0 : tileCount - 1,
+        y: y,
+        dx: leftToRight ? 1 : -1,
+        dy: 0
+      };
+    }
+
+    birds.push(bird);
+  }
+
+  function update() {
+    const head = { ...snake[0] };
+    head.x += direction.x;
+    head.y += direction.y;
+
+    if (
+      head.x < 0 || head.x >= tileCount ||
+      head.y < 0 || head.y >= tileCount ||
+      snake.slice(1).some(segment => segment.x === head.x && segment.y === head.y)
+    ) {
+      endGame("Game Over! You crashed.");
+      return;
+    }
+
+    // Check bird HEAD collision only
+    for (let bird of birds) {
+      if (head.x === bird.x && head.y === bird.y) {
+        endGame("Game Over! A bird got your head!");
+        return;
+      }
+    }
+
+    snake.unshift(head);
+
+    if (head.x === fruit.x && head.y === fruit.y) {
+      score++;
+      updateScore();
+      eatSound.play();
+      placeFruit();
+    } else {
+      snake.pop();
+    }
+
+    // Move birds
+    for (let bird of birds) {
+      bird.x += bird.dx;
+      bird.y += bird.dy;
+    }
+
+    // Remove offscreen birds
+    birds = birds.filter(b =>
+      b.x >= 0 && b.x < tileCount &&
+      b.y >= 0 && b.y < tileCount
+    );
+
+    draw();
+  }
+
+  function endGame(message) {
+    stopGame();
+    dieSound.play();
+    alert(message + " Score: " + score);
+  }
+
+  function draw() {
+    ctx.fillStyle = "#222";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw fruit
+    ctx.fillStyle = "red";
+    ctx.fillRect(fruit.x * gridSize, fruit.y * gridSize, gridSize, gridSize);
+
+    // Draw snake
+    ctx.fillStyle = "lime";
+    for (let segment of snake) {
+      ctx.fillRect(segment.x * gridSize, segment.y * gridSize, gridSize - 2, gridSize - 2);
+    }
+
+    // Draw birds
+    ctx.fillStyle = "orange";
+    for (let bird of birds) {
+      ctx.beginPath();
+      ctx.arc(bird.x * gridSize + gridSize / 2, bird.y * gridSize + gridSize / 2, 6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  window.addEventListener("keydown", e => {
+    switch (e.key) {
+      case "ArrowUp":
+        if (direction.y === 0) direction = { x: 0, y: -1 };
+        break;
+      case "ArrowDown":
+        if (direction.y === 0) direction = { x: 0, y: 1 };
+        break;
+      case "ArrowLeft":
+        if (direction.x === 0) direction = { x: -1, y: 0 };
+        break;
+      case "ArrowRight":
+        if (direction.x === 0) direction = { x: 1, y: 0 };
+        break;
+    }
+  });
+
+  draw(); // Initial draw
+</script>
+
+</body>
+</html>
